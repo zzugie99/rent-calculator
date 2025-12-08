@@ -10,7 +10,7 @@ body { font-family: 'Nanum Gothic', sans-serif; padding: 20px; }
 .container { max-width: 420px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; }
 h2 { color: #2b7a2b; font-weight: bold; text-align: center; }
 label { font-weight: bold; margin-top: 10px; display: block; }
-select, input { width: 100%; padding: 8px; margin-top: 5px; }
+select, input { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; }
 #calculateBtn { background-color: #2b7a2b; color: white; padding: 10px; border: none; width: 100%; margin-top: 20px; border-radius: 5px; cursor: pointer; }
 #calculateBtn:hover { background-color: #256623; }
 #result { margin-top: 20px; font-size: 1.2em; font-weight: bold; }
@@ -48,7 +48,7 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 <div id="monthlyBox" style="display:none">
   <label>월세 (최대 600,000원)</label>
   <input type="number" id="monthlyRent" />
-  <span style="color:red; font-size:0.9em;">월세는 지원하지 않음</span>
+  <span style="color:red; font-size:0.9em; font-weight:bold;">SH 전세임대는 월세를 지원하지 않음</span>
 </div>
 
 <button id="calculateBtn">계산하기</button>
@@ -83,6 +83,11 @@ document.getElementById("calculateBtn").addEventListener("click", function() {
 
   let monthlyRent = (deposit * support * rate) / 12;
   document.getElementById("result").innerText = "월 임대료: " + Math.round(monthlyRent).toLocaleString() + "원";
+});
+</script>
+</body>
+</html>
+
 });
 </script>
 </body>
