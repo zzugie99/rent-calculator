@@ -6,88 +6,120 @@
 <title>임대료 계산기</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700&display=swap');
-body { font-family: 'Nanum Gothic', sans-serif; padding: 20px; }
-.container { max-width: 420px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; }
-h2 { color: #2b7a2b; font-weight: bold; text-align: center; }
-label { font-weight: bold; margin-top: 10px; display: block; }
-select, input { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; }
-#calculateBtn { background-color: #2b7a2b; color: white; padding: 10px; border: none; width: 100%; margin-top: 20px; border-radius: 5px; cursor: pointer; }
-#calculateBtn:hover { background-color: #256623; }
-#result { margin-top: 20px; font-size: 1.2em; font-weight: bold; }
-input[type=number] { -moz-appearance: textfield; }
-input[type=number]::-webkit-inner-spin-button,
-input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+body { font-family: 'Nanum Gothic', sans-serif; padding: 20px; background:#f7f7f7; }
+.container { max-width: 520px; margin: 24px auto; padding: 20px; background:#fff; border-radius:10px; box-shadow:0 6px 18px rgba(0,0,0,0.06); }
+h2 { color:#2b7a2b; text-align:center; margin:0 0 12px 0; }
+label { font-weight:700; margin-top:12px; display:block; }
+select, input { width:100%; padding:10px; margin-top:6px; box-sizing:border-box; border:1px solid #e3e3e3; border-radius:6px; }
+#calculateBtn { background-color:#2b7a2b; color:#fff; padding:12px; border:none; border-radius:8px; width:100%; font-size:16px; margin-top:16px; cursor:pointer; }
+#calculateBtn:hover { background-color:#256623; }
+.note { font-size:13px; color:#666; margin-top:6px; }
+.result { margin-top:18px; padding:12px; border-radius:8px; background:#f1faf1; font-weight:700; }
+.result .line { margin:6px 0; }
+.red-note { color:red; font-weight:700; }
 </style>
 </head>
 <body>
 <div class="container">
-<h2>임대료 계산하기</h2>
+  <h2>임대료 계산기</h2>
 
-<label>계약 방식</label>
-<select id="contractType">
-  <option value="jeonse">전세</option>
-  <option value="monthly">보증부 월세</option>
-</select>
+  <label for="contractType">계약 방식</label>
+  <select id="contractType">
+    <option value="jeonse">전세</option>
+    <option value="monthly">보증부 월세</option>
+  </select>
 
-<label>보증금 (보증금 한도액 최대 325,000,000원)</label>
-<input type="number" id="deposit" />
+  <label for="deposit">보증금 (보증금 한도액 최대 325,000,000원)</label>
+  <input type="number" id="deposit" placeholder="숫자만 입력" />
 
-<label>지원 비율</label>
-<select id="supportRate">
-  <option value="0.95">95%</option>
-  <option value="0.98">98%</option>
-</select>
+  <label for="supportRate">지원 비율</label>
+  <select id="supportRate">
+    <option value="0.95">95%</option>
+    <option value="0.98">98%</option>
+  </select>
 
-<label>연이율</label>
-<select id="interestRate">
-  <option value="0.01">1% (4천만 이하)</option>
-  <option value="0.015">1.5% (4천만 초과 6천만 이하)</option>
-  <option value="0.02">2% (6천만 초과)</option>
-</select>
+  <!-- 자동 연이율 계산 안내 -->
+  <label>연이율 (보증금 기준 자동 적용)</label>
+  <div class="note">4천만 이하 1% / 4천만 초과 6천만 이하 1.5% / 6천만 초과 2%</div>
 
-<div id="monthlyBox" style="display:none">
-  <label>월세 (최대 600,000원)</label>
-  <input type="number" id="monthlyRent" />
-  <span style="color:red; font-size:0.9em; font-weight:bold;">SH 전세임대는 월세를 지원하지 않음</span>
-</div>
+  <label for="discountRate">연이율 감면 사항</label>
+  <select id="discountRate">
+    <option value="0">해당 없음</option>
+    <option value="0.002">생계·의료급여 수급자 (-0.2%)</option>
+    <option value="0.002">미성년 1자녀 (-0.2%)</option>
+    <option value="0.003">미성년 2자녀 (-0.3%)</option>
+    <option value="0.005">미성년 3자녀 이상 (-0.5%)</option>
+  </select>
 
-<button id="calculateBtn">계산하기</button>
-<div id="result"></div>
+  <div id="monthlyBox" style="display:none">
+    <label for="monthlyRent">월세 (최대 600,000원)</label>
+    <input type="number" id="monthlyRent" placeholder="임대인에게 지급할 월세" />
+    <div class="note red-note">SH 전세임대는 월세를 지원하지 않음</div>
+  </div>
+
+  <button id="calculateBtn">계산하기</button>
+
+  <div id="result" class="result" style="display:none">
+    <div id="resultJeonse" style="display:none">
+      <div class="line">SH에 지급할 월 임대료: <span id="shMonthlyJeonse"></span></div>
+    </div>
+    <div id="resultWolse" style="display:none">
+      <div class="line">임대인에게 지급할 월세: <span id="ownerMonthly"></span></div>
+      <div class="line">SH에 지급할 월 임대료: <span id="shMonthlyWolse"></span></div>
+    </div>
+  </div>
 </div>
 
 <script>
-const contractType = document.getElementById("contractType");
-const monthlyBox = document.getElementById("monthlyBox");
+const contractType = document.getElementById('contractType');
+const monthlyBox = document.getElementById('monthlyBox');
+const discountRate = document.getElementById('discountRate');
 
-contractType.addEventListener("change", function() {
-  monthlyBox.style.display = this.value === "monthly" ? "block" : "none";
+contractType.addEventListener('change', function(){
+  monthlyBox.style.display = this.value === 'monthly' ? 'block' : 'none';
 });
 
-document.getElementById("calculateBtn").addEventListener("click", function() {
-  let deposit = Number(document.getElementById("deposit").value);
-  let rate = Number(document.getElementById("interestRate").value);
-  let support = Number(document.getElementById("supportRate").value);
-  let contract = contractType.value;
-  let totalDeposit = deposit;
+function getAutoInterest(deposit){
+  if(deposit <= 40000000) return 0.01;
+  if(deposit <= 60000000) return 0.015;
+  return 0.02;
+}
 
-  if (contract === "monthly") {
-    let monthly = Number(document.getElementById("monthlyRent").value);
-    let converted = monthly / 0.04;
-    totalDeposit += converted;
+document.getElementById('calculateBtn').addEventListener('click', function(){
+  const deposit = Number(document.getElementById('deposit').value) || 0;
+  const supportRate = Number(document.getElementById('supportRate').value);
+  const contract = contractType.value;
+  let ownerMonthly = 0;
+
+  if(deposit <= 0){ alert('보증금을 올바르게 입력하세요'); return; }
+
+  if(contract === 'monthly'){
+    ownerMonthly = Number(document.getElementById('monthlyRent').value) || 0;
   }
 
-  if (totalDeposit > 325000000) {
-    document.getElementById("result").innerText = "보증금 한도액 초과";
-    return;
+  // 자동 연이율 적용
+  let interest = getAutoInterest(deposit);
+
+  // 감면 적용
+  interest -= Number(discountRate.value);
+  // 우대금리를 적용해도 최저 연이율은 1%
+  if(interest < 0.01) interest = 0.01;
+
+  // SH 월임대료 계산식: 보증금 × 지원비율 × 연이율 ÷ 12
+  const shMonthly = Math.round((deposit * supportRate * interest) / 12);
+
+  document.getElementById('result').style.display = 'block';
+
+  if(contract === 'jeonse'){
+    document.getElementById('resultJeonse').style.display = 'block';
+    document.getElementById('resultWolse').style.display = 'none';
+    document.getElementById('shMonthlyJeonse').innerText = shMonthly.toLocaleString() + '원';
+  } else {
+    document.getElementById('resultJeonse').style.display = 'none';
+    document.getElementById('resultWolse').style.display = 'block';
+    document.getElementById('ownerMonthly').innerText = ownerMonthly.toLocaleString() + '원';
+    document.getElementById('shMonthlyWolse').innerText = shMonthly.toLocaleString() + '원';
   }
-
-  let monthlyRent = (deposit * support * rate) / 12;
-  document.getElementById("result").innerText = "월 임대료: " + Math.round(monthlyRent).toLocaleString() + "원";
-});
-</script>
-</body>
-</html>
-
 });
 </script>
 </body>
