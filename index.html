@@ -108,6 +108,13 @@ document.getElementById('calculateBtn').addEventListener('click', function(){
 
   if(contract === 'monthly'){
     ownerMonthly = Number(document.getElementById('monthlyRent').value) || 0;
+    // 월세 한도 600,000원 체크
+    if(ownerMonthly > 600000){ showError('월세 한도액 초과'); return; }
+  }
+
+  // 보증부 월세의 경우 월세 → 보증금 전환
+  if(contract === 'monthly'){
+    ownerMonthly = Number(document.getElementById('monthlyRent').value) || 0;
   }
 
   // 보증부 월세의 경우 월세 → 보증금 전환
