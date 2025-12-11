@@ -38,9 +38,8 @@ select, input { width:100%; padding:10px; margin-top:6px; box-sizing:border-box;
     <option value="0.98">98%</option>
   </select>
 
-  <!-- 자동 연이율 계산 안내 -->
   <label>연이율 (보증금 기준 자동 적용)</label>
-  <div class="note">4천만 이하 1% / 4천만 초과 6천만 이하 1.5% / 6천만 초과 2%</div>
+  <div class="note">4천만 이하 1.2% / 4천만 초과 6천만 이하 1.7% / 6천만 초과 2.2%</div>
 
   <label for="discountRate">연이율 감면 사항</label>
   <select id="discountRate">
@@ -51,7 +50,14 @@ select, input { width:100%; padding:10px; margin-top:6px; box-sizing:border-box;
     <option value="0.005">미성년 3자녀 이상 (-0.5%)</option>
   </select>
 
+  <!-- 보증부 월세에서만 보이도록 함 -->
   <div id="monthlyBox" style="display:none">
+    <label for="guarantee">임차료 지급보증 가입 여부</label>
+    <select id="guarantee">
+      <option value="3">가입 (3개월분 부담)</option>
+      <option value="12">미가입 (12개월분 부담)</option>
+    </select>
+
     <label for="monthlyRent">월세 (최대 600,000원)</label>
     <input type="number" id="monthlyRent" placeholder="임대인에게 지급할 월세" />
     <div class="note red-note">SH 전세임대는 월세를 지원하지 않음</div>
@@ -59,66 +65,89 @@ select, input { width:100%; padding:10px; margin-top:6px; box-sizing:border-box;
 
   <button id="calculateBtn">계산하기</button>
 
-  <div id="result" class="result" style="display:none">
-    <div id="resultJeonse" style="display:none">
-      <div class="line">SH에 지급할 월 임대료: <span id="shMonthlyJeonse"></span></div>
-    </div>
-    <div id="resultWolse" style="display:none">
-      <div class="line">임대인에게 지급할 월세: <span id="ownerMonthly"></span></div>
-      <div class="line">SH에 지급할 월 임대료: <span id="shMonthlyWolse"></span></div>
-    </div>
-  </div>
+  <div id="result" class="result" style="display:none"></div>
 </div>
 
 <script>
+// JS 로직 - 단일 선언, 명확한 최저 금리 적용
 const contractType = document.getElementById('contractType');
 const monthlyBox = document.getElementById('monthlyBox');
 const discountRate = document.getElementById('discountRate');
+const LIMIT = 325000000;
 
+// 계약 방식 변경 시 UI 제어
 contractType.addEventListener('change', function(){
   monthlyBox.style.display = this.value === 'monthly' ? 'block' : 'none';
 });
 
 function getAutoInterest(deposit){
-  if(deposit <= 40000000) return 0.01;
-  if(deposit <= 60000000) return 0.015;
-  return 0.02;
+  if(deposit <= 40000000) return 0.012;
+  if(deposit <= 60000000) return 0.017;
+  return 0.022;
 }
 
+function showResultHTML(html){
+  const result = document.getElementById('result');
+  result.style.display = 'block';
+  result.innerHTML = html;
+}
+
+function showError(msg){
+  showResultHTML(`<div class="result red-note">${msg}</div>`);
+}
+
+// 계산 버튼
 document.getElementById('calculateBtn').addEventListener('click', function(){
-  const deposit = Number(document.getElementById('deposit').value) || 0;
+  const deposit = Number(document.getElementById('deposit').value);
   const supportRate = Number(document.getElementById('supportRate').value);
   const contract = contractType.value;
+  const discount = Number(discountRate.value) || 0;
   let ownerMonthly = 0;
 
-  if(deposit <= 0){ alert('보증금을 올바르게 입력하세요'); return; }
+  if(!deposit || deposit <= 0){ showError('보증금을 올바르게 입력하세요'); return; }
 
   if(contract === 'monthly'){
     ownerMonthly = Number(document.getElementById('monthlyRent').value) || 0;
   }
 
-  // 자동 연이율 적용
-  let interest = getAutoInterest(deposit);
+  // 보증부 월세의 경우 월세 → 보증금 전환
+  if(contract === 'monthly'){
+    const converted = ownerMonthly / 0.04;
+    if(deposit + converted > LIMIT){ showError('보증금 한도액 초과'); return; }
+  }
 
-  // 감면 적용
-  interest -= Number(discountRate.value);
-  // 우대금리를 적용해도 최저 연이율은 1%
-  if(interest < 0.01) interest = 0.01;
+  // 전세의 경우 단독 보증금 체크
+  if(contract === 'jeonse' && deposit > LIMIT){ showError('보증금 한도액 초과'); return; }
 
-  // SH 월임대료 계산식: 보증금 × 지원비율 × 연이율 ÷ 12
-  const shMonthly = Math.round((deposit * supportRate * interest) / 12);
+  // 연이율 결정 및 감면 적용
+  const baseInterest = getAutoInterest(deposit);
+  // 감면 적용 후 최저 금리 1.2% 보장
+  let interest = Math.max(baseInterest - discount, 0.012);
 
-  document.getElementById('result').style.display = 'block';
+  // 기본 원금(지원비율 적용)
+  let principalForCalc = deposit * supportRate;
 
+  // 보증부 월세일 때만 임차료 지급보증(가입/미가입)에 따른 공제 적용
+  if(contract === 'monthly'){
+    const guaranteeSelect = document.getElementById('guarantee');
+    const guaranteeMonths = guaranteeSelect ? Number(guaranteeSelect.value) || 0 : 0; // 3 또는 12
+    const deduction = guaranteeMonths * ownerMonthly;
+    principalForCalc = principalForCalc - deduction;
+    if(principalForCalc < 0) principalForCalc = 0;
+  }
+
+  // SH 월임대료 계산: (조정원금 * 연이율) / 12
+  let shMonthly = (principalForCalc * interest) / 12;
+
+  // 10원 미만 절사
+  shMonthly = Math.floor(shMonthly / 10) * 10;
+
+  // 결과 표시
   if(contract === 'jeonse'){
-    document.getElementById('resultJeonse').style.display = 'block';
-    document.getElementById('resultWolse').style.display = 'none';
-    document.getElementById('shMonthlyJeonse').innerText = shMonthly.toLocaleString() + '원';
+    showResultHTML(`<div class="line">SH에 지급할 월 임대료: <strong>${shMonthly.toLocaleString()}원</strong></div>`);
   } else {
-    document.getElementById('resultJeonse').style.display = 'none';
-    document.getElementById('resultWolse').style.display = 'block';
-    document.getElementById('ownerMonthly').innerText = ownerMonthly.toLocaleString() + '원';
-    document.getElementById('shMonthlyWolse').innerText = shMonthly.toLocaleString() + '원';
+    showResultHTML(`<div class="line">임대인에게 지급할 월세: <strong>${ownerMonthly.toLocaleString()}원</strong></div>
+                    <div class="line">SH에 지급할 월 임대료: <strong>${shMonthly.toLocaleString()}원</strong></div>`);
   }
 });
 </script>
